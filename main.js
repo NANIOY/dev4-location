@@ -7,6 +7,7 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 let treasures = [];
 let score = 0;
 let currentLocationMarker = null;
+let treasureMarkers = [];
 
 const userIcon = L.divIcon({
     className: 'userIcon',
@@ -28,11 +29,19 @@ function getRandomOffset() {
     return (Math.random() * 0.02) - 0.01;
 }
 
-function createTreasures(userLat, userLng) {
+function createTreasure(userLat, userLng) {
+    const latOffset = getRandomOffset();
+    const lngOffset = getRandomOffset();
+    const treasure = { lat: userLat + latOffset, lng: userLng + lngOffset, found: false };
+    treasures.push(treasure);
+    const marker = L.marker([treasure.lat, treasure.lng], { icon: treasureIcon }).addTo(map)
+        .bindPopup('A hidden treasure is nearby!');
+    treasureMarkers.push(marker);
+}
+
+function createInitialTreasures(userLat, userLng) {
     for (let i = 0; i < 5; i++) {
-        const latOffset = getRandomOffset();
-        const lngOffset = getRandomOffset();
-        treasures.push({ lat: userLat + latOffset, lng: userLng + lngOffset, found: false });
+        createTreasure(userLat, userLng);
     }
 }
 
@@ -64,17 +73,9 @@ function initializeMapAndTreasures(lat, lng) {
     map.setView([lat, lng], 13);
 
     if (treasures.length === 0) {
-        createTreasures(lat, lng);
+        createInitialTreasures(lat, lng);
+        logTreasureInfo();
     }
-
-    treasures.forEach(treasure => {
-        if (treasure.lat && treasure.lng) {
-            L.marker([treasure.lat, treasure.lng], { icon: treasureIcon }).addTo(map)
-                .bindPopup('A hidden treasure is nearby!');
-        }
-    });
-
-    logTreasureInfo();
 }
 
 if (navigator.geolocation) {
@@ -89,12 +90,17 @@ if (navigator.geolocation) {
                 treasure.found = true;
                 score += 10;
                 document.getElementById('score').innerText = score;
-                document.querySelector('.treasureInfo').style.display = 'block';
 
                 L.popup()
                     .setLatLng([lat, lng])
                     .setContent("You found a treasure! Your score is now " + score)
                     .openOn(map);
+
+                map.removeLayer(treasureMarkers[index]);
+                treasureMarkers.splice(index, 1);
+                treasures.splice(index, 1);
+                createTreasure(lat, lng);
+                logTreasureInfo(); 
 
                 localStorage.setItem('score', score);
                 localStorage.setItem('treasures', JSON.stringify(treasures));
@@ -105,6 +111,7 @@ if (navigator.geolocation) {
     alert("Geolocation is not supported by this browser.");
 }
 
+// Load game state from local storage
 const savedScore = localStorage.getItem('score');
 const savedTreasures = localStorage.getItem('treasures');
 if (savedScore !== null) {
@@ -116,6 +123,9 @@ if (savedTreasures !== null) {
     savedTreasuresArray.forEach(savedTreasure => {
         if (savedTreasure.lat && savedTreasure.lng) {
             treasures.push(savedTreasure);
+            const marker = L.marker([savedTreasure.lat, savedTreasure.lng], { icon: treasureIcon }).addTo(map)
+                .bindPopup('A hidden treasure is nearby!');
+            treasureMarkers.push(marker);
         }
     });
 }
