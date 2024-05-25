@@ -67,8 +67,6 @@ function initializeMapAndTreasures(lat, lng) {
     }
 
     currentLocationMarker = L.marker([lat, lng], { icon: userIcon }).addTo(map)
-        .bindPopup('You are here!')
-        .openPopup();
 
     map.setView([lat, lng], 13);
 
@@ -100,7 +98,7 @@ if (navigator.geolocation) {
                 treasureMarkers.splice(index, 1);
                 treasures.splice(index, 1);
                 createTreasure(lat, lng);
-                logTreasureInfo(); 
+                logTreasureInfo();
 
                 localStorage.setItem('score', score);
                 localStorage.setItem('treasures', JSON.stringify(treasures));
