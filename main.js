@@ -1,5 +1,6 @@
 const map = L.map('map').setView([51.505, -0.09], 13);
 
+// add OpenStreetMap tile layer to map
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap contributors'
 }).addTo(map);
@@ -9,6 +10,7 @@ let score = 0;
 let currentLocationMarker = null;
 let treasureMarkers = [];
 
+// define custom icons for user and treasure markers
 const userIcon = L.divIcon({
     className: 'userIcon',
     html: '<div class="pin"></div><div class="pulse"></div>',
@@ -25,6 +27,7 @@ const treasureIcon = L.divIcon({
     popupAnchor: [0, -30]
 });
 
+// fetch street coordinates near user's location using overpass API
 async function fetchStreetCoordinates(lat, lng) {
     const overpassUrl = `https://overpass-api.de/api/interpreter?data=[out:json];way(around:500,${lat},${lng})["highway"];(._;>;);out body;`;
     const response = await fetch(overpassUrl);
@@ -40,27 +43,30 @@ async function fetchStreetCoordinates(lat, lng) {
     return coordinates;
 }
 
+// create a treasure at a random street location near the user
 async function createTreasure(userLat, userLng) {
-    const streetCoords = await fetchStreetCoordinates(userLat, userLng);
+    const streetCoords = await fetchStreetCoordinates(userLat, userLng); // fetch street coordinates
     if (streetCoords.length > 0) {
-        const randomIndex = Math.floor(Math.random() * streetCoords.length);
+        const randomIndex = Math.floor(Math.random() * streetCoords.length); // select random street coordinate
         const [treasureLat, treasureLng] = streetCoords[randomIndex];
         const treasure = { lat: treasureLat, lng: treasureLng, found: false };
         treasures.push(treasure);
         const marker = L.marker([treasure.lat, treasure.lng], { icon: treasureIcon }).addTo(map)
-            .bindPopup('A hidden treasure is nearby!');
+            .bindPopup('a hidden treasure is nearby!');
         treasureMarkers.push(marker);
     } else {
-        console.error("No street coordinates found. Unable to place treasure.");
+        console.error("no street coordinates found. unable to place treasure.");
     }
 }
 
+// create initial set of treasures near user
 async function createInitialTreasures(userLat, userLng) {
     for (let i = 0; i < 5; i++) {
         await createTreasure(userLat, userLng);
     }
 }
 
+// calculate distance between two geographic points
 function getDistance(lat1, lon1, lat2, lon2) {
     const R = 6371e3; // metres
     const φ1 = lat1 * Math.PI / 180;
@@ -77,12 +83,13 @@ function getDistance(lat1, lon1, lat2, lon2) {
     return d;
 }
 
+// initialize map and treasures
 async function initializeMapAndTreasures(lat, lng) {
     if (currentLocationMarker) {
         map.removeLayer(currentLocationMarker);
     }
 
-    currentLocationMarker = L.marker([lat, lng], { icon: userIcon }).addTo(map)
+    currentLocationMarker = L.marker([lat, lng], { icon: userIcon }).addTo(map);
 
     map.setView([lat, lng], 13);
 
@@ -92,6 +99,7 @@ async function initializeMapAndTreasures(lat, lng) {
     }
 }
 
+// handle geolocation updates
 if (navigator.geolocation) {
     navigator.geolocation.watchPosition(async position => {
         const lat = position.coords.latitude;
@@ -102,12 +110,12 @@ if (navigator.geolocation) {
         treasures.forEach(async (treasure, index) => {
             if (!treasure.found && getDistance(lat, lng, treasure.lat, treasure.lng) < 50) {
                 treasure.found = true;
-                score += 10;
+                score += 1;
                 document.getElementById('score').innerText = score;
 
                 L.popup()
                     .setLatLng([lat, lng])
-                    .setContent("You found a treasure! Your score is now " + score)
+                    .setContent("you found a treasure! your score is now " + score)
                     .openOn(map);
 
                 map.removeLayer(treasureMarkers[index]);
@@ -122,9 +130,10 @@ if (navigator.geolocation) {
         });
     });
 } else {
-    alert("Geolocation is not supported by this browser.");
+    alert("geolocation is not supported by this browser.");
 }
 
+// load game state from local storage
 const savedScore = localStorage.getItem('score');
 const savedTreasures = localStorage.getItem('treasures');
 if (savedScore !== null) {
@@ -137,14 +146,15 @@ if (savedTreasures !== null) {
         if (savedTreasure.lat && savedTreasure.lng) {
             treasures.push(savedTreasure);
             const marker = L.marker([savedTreasure.lat, savedTreasure.lng], { icon: treasureIcon }).addTo(map)
-                .bindPopup('A hidden treasure is nearby!');
+                .bindPopup('a hidden treasure is nearby!');
             treasureMarkers.push(marker);
         }
     });
 }
 
+// log treasure information to console
 function logTreasureInfo() {
     treasures.forEach(treasure => {
-        console.log(`Treasure Location: Latitude: ${treasure.lat}, Longitude: ${treasure.lng}`);
+        console.log(`treasure location: latitude: ${treasure.lat}, longitude: ${treasure.lng}`);
     });
 }
