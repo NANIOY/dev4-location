@@ -25,23 +25,39 @@ const treasureIcon = L.divIcon({
     popupAnchor: [0, -30]
 });
 
-function getRandomOffset() {
-    return (Math.random() * 0.02) - 0.01;
+async function fetchStreetCoordinates(lat, lng) {
+    const overpassUrl = `https://overpass-api.de/api/interpreter?data=[out:json];way(around:500,${lat},${lng})["highway"];(._;>;);out body;`;
+    const response = await fetch(overpassUrl);
+    const data = await response.json();
+
+    const coordinates = [];
+    data.elements.forEach(element => {
+        if (element.type === 'node') {
+            coordinates.push([element.lat, element.lon]);
+        }
+    });
+
+    return coordinates;
 }
 
-function createTreasure(userLat, userLng) {
-    const latOffset = getRandomOffset();
-    const lngOffset = getRandomOffset();
-    const treasure = { lat: userLat + latOffset, lng: userLng + lngOffset, found: false };
-    treasures.push(treasure);
-    const marker = L.marker([treasure.lat, treasure.lng], { icon: treasureIcon }).addTo(map)
-        .bindPopup('A hidden treasure is nearby!');
-    treasureMarkers.push(marker);
+async function createTreasure(userLat, userLng) {
+    const streetCoords = await fetchStreetCoordinates(userLat, userLng);
+    if (streetCoords.length > 0) {
+        const randomIndex = Math.floor(Math.random() * streetCoords.length);
+        const [treasureLat, treasureLng] = streetCoords[randomIndex];
+        const treasure = { lat: treasureLat, lng: treasureLng, found: false };
+        treasures.push(treasure);
+        const marker = L.marker([treasure.lat, treasure.lng], { icon: treasureIcon }).addTo(map)
+            .bindPopup('A hidden treasure is nearby!');
+        treasureMarkers.push(marker);
+    } else {
+        console.error("No street coordinates found. Unable to place treasure.");
+    }
 }
 
-function createInitialTreasures(userLat, userLng) {
+async function createInitialTreasures(userLat, userLng) {
     for (let i = 0; i < 5; i++) {
-        createTreasure(userLat, userLng);
+        await createTreasure(userLat, userLng);
     }
 }
 
@@ -61,7 +77,7 @@ function getDistance(lat1, lon1, lat2, lon2) {
     return d;
 }
 
-function initializeMapAndTreasures(lat, lng) {
+async function initializeMapAndTreasures(lat, lng) {
     if (currentLocationMarker) {
         map.removeLayer(currentLocationMarker);
     }
@@ -71,19 +87,19 @@ function initializeMapAndTreasures(lat, lng) {
     map.setView([lat, lng], 13);
 
     if (treasures.length === 0) {
-        createInitialTreasures(lat, lng);
+        await createInitialTreasures(lat, lng);
         logTreasureInfo();
     }
 }
 
 if (navigator.geolocation) {
-    navigator.geolocation.watchPosition(position => {
+    navigator.geolocation.watchPosition(async position => {
         const lat = position.coords.latitude;
         const lng = position.coords.longitude;
 
-        initializeMapAndTreasures(lat, lng);
+        await initializeMapAndTreasures(lat, lng);
 
-        treasures.forEach((treasure, index) => {
+        treasures.forEach(async (treasure, index) => {
             if (!treasure.found && getDistance(lat, lng, treasure.lat, treasure.lng) < 50) {
                 treasure.found = true;
                 score += 10;
@@ -97,7 +113,7 @@ if (navigator.geolocation) {
                 map.removeLayer(treasureMarkers[index]);
                 treasureMarkers.splice(index, 1);
                 treasures.splice(index, 1);
-                createTreasure(lat, lng);
+                await createTreasure(lat, lng);
                 logTreasureInfo();
 
                 localStorage.setItem('score', score);
@@ -109,7 +125,6 @@ if (navigator.geolocation) {
     alert("Geolocation is not supported by this browser.");
 }
 
-// Load game state from local storage
 const savedScore = localStorage.getItem('score');
 const savedTreasures = localStorage.getItem('treasures');
 if (savedScore !== null) {
@@ -131,7 +146,5 @@ if (savedTreasures !== null) {
 function logTreasureInfo() {
     treasures.forEach(treasure => {
         console.log(`Treasure Location: Latitude: ${treasure.lat}, Longitude: ${treasure.lng}`);
-        console.log(`Timezone ID: ${Intl.DateTimeFormat().resolvedOptions().timeZone}`);
-        console.log(`Locale: ${navigator.language}`);
     });
 }
